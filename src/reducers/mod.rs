@@ -13,14 +13,16 @@ pub mod full_utxos_by_address;
 pub mod macros;
 pub mod point_by_tx;
 pub mod pool_by_stake;
+pub mod books_by_address;
 pub mod utxo_by_address;
+pub mod asset_metadata;
+
 mod worker;
 
 #[cfg(feature = "unstable")]
 pub mod address_by_asset;
 #[cfg(feature = "unstable")]
 pub mod address_by_txo;
-#[cfg(feature = "unstable")]
 pub mod addresses_by_stake;
 #[cfg(feature = "unstable")]
 pub mod asset_holders_by_asset_id;
@@ -50,6 +52,8 @@ pub enum Config {
     UtxoByAddress(utxo_by_address::Config),
     PointByTx(point_by_tx::Config),
     PoolByStake(pool_by_stake::Config),
+    BookByAddress(books_by_address::Config),
+    AssetMetadata(asset_metadata::Config),
 
     #[cfg(feature = "unstable")]
     AddressByTxo(address_by_txo::Config),
@@ -75,7 +79,6 @@ pub enum Config {
     UtxoByStake(utxo_by_stake::Config),
     #[cfg(feature = "unstable")]
     SupplyByAsset(supply_by_asset::Config),
-    #[cfg(feature = "unstable")]
     AddressesByStake(addresses_by_stake::Config),
 }
 
@@ -90,7 +93,8 @@ impl Config {
             Config::UtxoByAddress(c) => c.plugin(policy),
             Config::PointByTx(c) => c.plugin(),
             Config::PoolByStake(c) => c.plugin(),
-
+            Config::BookByAddress(c) => c.plugin(chain,policy),
+            Config::AssetMetadata(c) => c.plugin(chain, policy),
             #[cfg(feature = "unstable")]
             Config::AddressByTxo(c) => c.plugin(policy),
             #[cfg(feature = "unstable")]
@@ -115,7 +119,6 @@ impl Config {
             Config::UtxoByStake(c) => c.plugin(policy),
             #[cfg(feature = "unstable")]
             Config::SupplyByAsset(c) => c.plugin(policy),
-            #[cfg(feature = "unstable")]
             Config::AddressesByStake(c) => c.plugin(policy),
         }
     }
@@ -171,6 +174,8 @@ pub enum Reducer {
     UtxoByAddress(utxo_by_address::Reducer),
     PointByTx(point_by_tx::Reducer),
     PoolByStake(pool_by_stake::Reducer),
+    BookByAddress(books_by_address::Reducer),
+    AssetMetadata(asset_metadata::Reducer),
 
     #[cfg(feature = "unstable")]
     AddressByTxo(address_by_txo::Reducer),
@@ -196,7 +201,6 @@ pub enum Reducer {
     UtxoByStake(utxo_by_stake::Reducer),
     #[cfg(feature = "unstable")]
     SupplyByAsset(supply_by_asset::Reducer),
-    #[cfg(feature = "unstable")]
     AddressesByStake(addresses_by_stake::Reducer),
 }
 
@@ -212,6 +216,8 @@ impl Reducer {
             Reducer::UtxoByAddress(x) => x.reduce_block(block, ctx, output),
             Reducer::PointByTx(x) => x.reduce_block(block, output),
             Reducer::PoolByStake(x) => x.reduce_block(block, output),
+            Reducer::BookByAddress(x) => x.reduce_block(block, ctx, output),
+            Reducer::AssetMetadata(x) => x.reduce_block(block, output),
 
             #[cfg(feature = "unstable")]
             Reducer::AddressByTxo(x) => x.reduce_block(block, ctx, output),
@@ -232,12 +238,13 @@ impl Reducer {
             #[cfg(feature = "unstable")]
             Reducer::AssetHoldersByAssetId(x) => x.reduce_block(block, ctx, output),
             #[cfg(feature = "unstable")]
+            Reducer::BookByAddress(x) => x.reduce_block(block, ctx, output),
+            #[cfg(feature = "unstable")]
             Reducer::UtxosByAsset(x) => x.reduce_block(block, ctx, output),
             #[cfg(feature = "unstable")]
             Reducer::UtxoByStake(x) => x.reduce_block(block, ctx, output),
             #[cfg(feature = "unstable")]
             Reducer::SupplyByAsset(x) => x.reduce_block(block, ctx, output),
-            #[cfg(feature = "unstable")]
             Reducer::AddressesByStake(x) => x.reduce_block(block, ctx, output),
         }
     }
