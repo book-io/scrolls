@@ -1,15 +1,21 @@
 use bech32::{ToBase32, Variant};
 use blake2::digest::{Update, VariableOutput};
 use blake2::Blake2bVar;
+use notify::{Event, INotifyWatcher, RecommendedWatcher, RecursiveMode, Watcher};
 use pallas::ledger::traverse::{Asset, MultiEraOutput};
 use pallas::ledger::traverse::{MultiEraBlock, OutputRef};
 use serde::Deserialize;
+use std::fs;
 
 use crate::{crosscut, model, prelude::*};
 use pallas::crypto::hash::Hash;
 
 use crate::crosscut::epochs::block_epoch;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
 
 #[derive(Deserialize, Copy, Clone)]
 pub enum AggrType {
@@ -19,55 +25,110 @@ pub enum AggrType {
 #[derive(Deserialize)]
 pub struct Config {
     pub key_prefix: Option<String>,
+    pub policy_ids_file: Option<String>,
     pub filter: Option<crosscut::filters::Predicate>,
     pub aggr_by: Option<AggrType>,
+}
 
-    /// Policies to match
-    ///
-    /// If specified only those policy ids as hex will be taken into account, if
-    /// not all policy ids will be indexed.
-    pub policy_ids_hex: Option<Vec<String>>,
+pub struct ReducerState {
+    watcher: Option<RecommendedWatcher>,
+    config_file: Option<PathBuf>,
+    policy_ids: Arc<Mutex<Vec<Hash<28>>>>,
 }
 
 pub struct Reducer {
     config: Config,
     policy: crosscut::policies::RuntimePolicy,
     chain: crosscut::ChainWellKnownInfo,
-    policy_ids: Option<Vec<Hash<28>>>,
+    state: Arc<Mutex<ReducerState>>
+}
+
+#[derive(Deserialize, Clone)]
+pub struct PolicyIds {
+    pub policy_ids: Vec<String>,
+}
+
+
+
+impl ReducerState {
+
+fn watch_path(&mut self, path: PathBuf, filename: String) {
+        if self.watcher.is_none() {
+            let (tx, rx) = std::sync::mpsc::channel();
+            //const DELAY: Duration = Duration::from_millis(200);
+            let watcher = notify::recommended_watcher(tx).unwrap();
+            let path = path.clone();
+            let path_string = format!("{}/{}", path.to_str().unwrap_or_default().to_string(), filename);
+            let policies_hex_cloned = self.policy_ids.clone();
+
+            std::thread::spawn(move || {
+                // block until we get an event
+
+                //fn extract_path(event: notify::Event) -> Vec<PathBuf> {
+                    //match event.kind {
+                        //EventKind::Modify(_) | EventKind::Create(_) | EventKind::Remove(_) => {
+                            //event.paths
+                        //}
+                        //_ => vec![],
+                    //}
+                //}
+
+                while let Ok(event) = rx.recv() {
+                    match event {
+                        Ok(event) => {
+                            if event.kind.is_modify() {
+
+                                dbg!(&event);
+                                match load_config(&path_string) {
+                                    Ok(new_config) => {
+                                        let new_hashes = config_to_hash(&new_config.policy_ids);
+                                        let mut phex = policies_hex_cloned.lock().unwrap();
+                                        phex.clear();
+                                        *phex = new_hashes;
+
+                                        println!("Reloading config.json ");
+                                    }
+                                    Err(error) => println!("Error reloading config: {:?}", error),
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            log::debug!("error {:?} changed, reload config", e);
+                        }
+                    }
+                }
+            });
+            self.watcher.replace(watcher);
+        }
+        if let Some(watcher) = self.watcher.as_mut() {
+            watcher
+                .watch(&path, notify::RecursiveMode::Recursive)
+                .ok();
+        }
+    }
+
 }
 
 impl Reducer {
-    fn config_key(&self, subject: String, epoch_no: u64) -> String {
-        let def_key_prefix = "asset_holders_by_asset_id";
 
-        match &self.config.aggr_by {
-            Some(aggr_type) if matches!(aggr_type, AggrType::Epoch) => {
-                return match &self.config.key_prefix {
-                    Some(prefix) => format!("{}.{}.{}", prefix, subject, epoch_no),
-                    None => format!("{}.{}", def_key_prefix.to_string(), subject),
-                };
-            }
-            _ => {
-                return match &self.config.key_prefix {
-                    Some(prefix) => format!("{}.{}", prefix, subject),
-                    None => format!("{}.{}", def_key_prefix.to_string(), subject),
-                };
-            }
-        };
-    }
+
+
 
     fn is_policy_id_accepted(&self, policy_id: &Hash<28>) -> bool {
-        return match &self.policy_ids {
-            Some(pids) => pids.contains(&policy_id),
-            None => true,
-        };
+        match self.state.clone().lock().unwrap().policy_ids.clone().lock().map(|ids| {
+            let pids = ids;
+            pids.contains(&policy_id)
+        }) {
+            Ok(p) => p,
+            Err(_) => false,
+        }
     }
 
     fn process_consumed_txo(
         &mut self,
         ctx: &model::BlockContext,
         input: &OutputRef,
-        epoch_no: u64,
+        _epoch_no: u64,
         output: &mut super::OutputPort,
     ) -> Result<(), gasket::error::Error> {
         let utxo = ctx.find_utxo(input).apply_policy(&self.policy).or_panic()?;
@@ -179,29 +240,66 @@ impl Reducer {
     }
 }
 
+fn config_to_hash(pids_str: &Vec<String>) -> Vec<Hash<28>> {
+    pids_str
+        .into_iter()
+        .map(|pid| Hash::<28>::from_str(&pid).expect("invalid policy_id"))
+        .collect()
+}
+
+/*fn watch() -> Result<()>{*/
+
+/*}*/
+
+pub fn load_config(path: &String) -> Result<PolicyIds, Box<dyn std::error::Error>> {
+    let file = std::fs::File::open(path)?;
+    let file_size = file.metadata()?.len();
+
+    if file_size == 0 {
+        return Err("The config file is empty.".into());
+    }
+
+    let reader = std::io::BufReader::new(file);
+
+    let pids: PolicyIds = serde_json::from_reader(reader)?;
+    Ok(pids)
+}
+
 impl Config {
     pub fn plugin(
         self,
         chain: &crosscut::ChainWellKnownInfo,
         policy: &crosscut::policies::RuntimePolicy,
     ) -> super::Reducer {
-        let policy_ids: Option<Vec<Hash<28>>> = match &self.policy_ids_hex {
-            Some(pids) => {
-                let ps = pids
-                    .iter()
-                    .map(|pid| Hash::<28>::from_str(pid).expect("invalid policy_id"))
-                    .collect();
 
-                Some(ps)
-            }
-            None => None,
+        let path = match self.policy_ids_file {
+            Some(ref p) => p.clone(),
+            None => "./config.json".to_string(),
         };
+
+        let pids_config = load_config(&path).unwrap();
+        let pids_hex = config_to_hash(&pids_config.policy_ids);
+        let policy_ids = Arc::new(Mutex::new(pids_hex));
+
+        let p = fs::canonicalize(&path).unwrap().clone();
+
+
+        let state = Arc::new(Mutex::new(
+            ReducerState {
+                config_file: Some(p.clone()),
+                watcher: None,
+                policy_ids
+            }
+        ));
+
+        state.lock().unwrap().watch_path(p.parent().unwrap().to_path_buf(), p.file_name().unwrap().to_string_lossy().to_string());
+        //reducer.watch_path(p.parent().unwra());
 
         let reducer = Reducer {
             config: self,
             chain: chain.clone(),
             policy: policy.clone(),
-            policy_ids: policy_ids.clone(),
+            state
         };
 
         super::Reducer::BookByAddress(reducer)

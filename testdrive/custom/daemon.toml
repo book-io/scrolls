@@ -1,11 +1,82 @@
 [source]
 type = "N2N"
-address = "relays-new.cardano-mainnet.iohk.io:3001"
+address = "preprod-node.world.dev.cardano.org:30000"
+
+#[[reducers]]
+#type = "UtxoByNft"
+#key_prefix = "AddressByBook"
 
 [[reducers]]
-type = "UtxoByNft"
-key_prefix = "c2"
+type = "BookByAddress"
+key_prefix = "BookHolder"
+#policy_ids_hex = ["952a95a45c76664174e64a124704afaac2e69f640ab658a8a507cd23"]
+convert_to_ascii = true
 
+[[reducers]]
+type = "AssetMetadata"
+projection = "Json"
+policy_asset_index = true
+historical_metadata = true
+policy_ids_hex = ["952a95a45c76664174e64a124704afaac2e69f640ab658a8a507cd23"]
+
+#[[reducers]]
+#type = "AddressByAsset"
+#key_prefix = "AddressByAsset"
+#policy_id_hex = "952a95a45c76664174e64a124704afaac2e69f640ab658a8a507cd23"
+#convert_to_ascii = false
+
+[[reducers]]
+type = "AddressesByStake"
+key_prefix = "AddressByStake"
+
+## Bible
+#[[reducers]]
+#type = "AssetHoldersByAsset"
+#key_prefix = "AddressByBook"
+#policy_id_hex = "477cec772adb1466b301fb8161f505aa66ed1ee8d69d3e7984256a43"
+#convert_to_ascii = true
+
+## Alice in the wonderland
+#[[reducers]]
+#type = "AssetHoldersByAsset"
+#key_prefix = "AddressByBook"
+#policy_id_hex = "9cb921b32bfe214a739ed824f3f2da4e16c535a5448253d2951cc732"
+#convert_to_ascii = true
+
+## Art of war
+#[[reducers]]
+#type = "AssetHoldersByAsset"
+#key_prefix = "AddressByBook"
+#policy_id_hex = "59451c4d18a7992cebfee65a278cd1cdb35c4d3d2503c829466c710e"
+#convert_to_ascii = true
+
+## Peter Pan
+#[[reducers]]
+#type = "AssetHoldersByAsset"
+#key_prefix = "AddressByBook"
+#policy_id_hex = "5744fc711353f313cb919ee5e8738027a11062eaedb69a101b0f591a"
+#convert_to_ascii = true
+
+## Great Gatsby
+#[[reducers]]
+#type = "AssetHoldersByAsset"
+#key_prefix = "AddressByBook"
+#policy_id_hex = "80c613ceadc1aa49422925bfc962b2519a6ae1bf6e2f8ec749df5ed8"
+#convert_to_ascii = true
+
+## Wizard of Oz
+#[[reducers]]
+#type = "AssetHoldersByAsset"
+#key_prefix = "AddressByBook"
+#policy_id_hex = "caf75c38e02911d3291652e142f255194f344672f198ebeeaf1c0124"
+#convert_to_ascii = true
+
+## Doctor dolittle
+#[[reducers]]
+#type = "AssetHoldersByAsset"
+#key_prefix = "AddressByBook"
+#policy_id_hex = "1acfa94c919a585bfe64c77aa10d3dd76ad71da126032f17a353eac1"
+#convert_to_ascii = true
 [storage]
 type = "Redis"
 connection_params = "redis://127.0.0.1:6379"
@@ -13,12 +84,20 @@ connection_params = "redis://127.0.0.1:6379"
 [intersect]
 type = "Point"
 value = [
-    75763928,
-    "081ede3bfac7d736625db5d4ad6c8024b46c8630329bf9155930bc3f2f511f5c",
+    28648669,
+    "5d3ca4916ddee8176746ccec3124a2e0eb8d8e23b5dba26670d3ef58cb890f58",
 ]
 
+#long ago
+#[intersect]
+#type = "Point"
+#value = [
+#23751352,
+#"1b8328e7a51fcf2ebd2b203d2a6ef8b918e6366c92ba89c598256b570a5f0af0",
+#]
+
 [chain]
-type = "Mainnet"
+type = "PreProd"
 
 [policy]
 missing_data = "Skip"

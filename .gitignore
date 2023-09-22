@@ -16,3 +16,4 @@
 # Nix build results
 result
 TODO.txt
+.direnv
