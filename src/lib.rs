@@ -6,6 +6,7 @@ pub mod prelude;
 pub mod reducers;
 pub mod sources;
 pub mod storage;
+pub mod reducer_state;
 
 use std::fmt::Display;
 

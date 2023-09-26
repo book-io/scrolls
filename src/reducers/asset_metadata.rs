@@ -1,5 +1,6 @@
 use std::ops::Deref;
 use std::str::FromStr;
+use std::sync::{Arc, Mutex};
 use pallas::crypto::hash::Hash;
 
 use bech32::{ToBase32, Variant};
@@ -13,6 +14,7 @@ use pallas::{codec::utils::KeyValuePairs, ledger::primitives::Fragment};
 use serde::Deserialize;
 use serde_json::Value;
 
+use crate::reducer_state::ReducerState;
 use crate::{crosscut, model};
 use crate::model::Delta;
 
@@ -42,7 +44,8 @@ pub struct Reducer {
     config: Config,
     policy: crosscut::policies::RuntimePolicy,
     time: crosscut::time::NaiveProvider,
-    policy_ids: Option<Vec<Hash<28>>>,
+    //policy_ids: Option<Vec<Hash<28>>>,
+    state: Arc<Mutex<ReducerState>>
 }
 
 const CIP25_META: u64 = 721;
@@ -82,10 +85,14 @@ fn kv_pairs_to_hashmap(kv_pairs: &KeyValuePairs<Metadatum, Metadatum>
 
 impl Reducer {
     fn is_policy_id_accepted(&self, policy_id: &Hash<28>) -> bool {
-        return match &self.policy_ids {
-            Some(pids) => pids.contains(&policy_id),
-            None => true,
-        };
+        //dbg!(&self.state.clone().lock().unwrap().policy_ids);
+        match self.state.clone().lock().unwrap().policy_ids.clone().lock().map(|ids| {
+            let pids = ids;
+            pids.contains(&policy_id)
+        }) {
+            Ok(p) => p,
+            Err(_) => false,
+        }
     }
 
     fn find_metadata_policy_assets(&self, metadata: &Metadatum, target_policy_id: &str) -> Option<KeyValuePairs<Metadatum, Metadatum>> {
@@ -284,24 +291,16 @@ impl Config {
         self,
         chain: &crosscut::ChainWellKnownInfo,
         policy: &crosscut::policies::RuntimePolicy,
+        state: Arc<Mutex<ReducerState>>
     ) -> super::Reducer {
-        let policy_ids: Option<Vec<Hash<28>>> = match &self.policy_ids_hex {
-            Some(pids) => {
-                let ps = pids
-                    .iter()
-                    .map(|pid| Hash::<28>::from_str(pid).expect("invalid policy_id"))
-                    .collect();
 
-                Some(ps)
-            }
-            None => None,
-        };
 
         let worker = Reducer {
             config: self,
             policy: policy.clone(),
             time: crosscut::time::NaiveProvider::new(chain.clone()),
-            policy_ids: policy_ids.clone(),
+            //policy_ids: None,
+            state,
         };
 
         super::Reducer::AssetMetadata(worker)

@@ -2,6 +2,7 @@
 type = "N2N"
 address = "preprod-node.world.dev.cardano.org:30000"
 
+
 #[[reducers]]
 #type = "UtxoByNft"
 #key_prefix = "AddressByBook"
@@ -17,7 +18,7 @@ type = "AssetMetadata"
 projection = "Json"
 policy_asset_index = true
 historical_metadata = true
-policy_ids_hex = ["952a95a45c76664174e64a124704afaac2e69f640ab658a8a507cd23"]
+#policy_ids_hex = ["952a95a45c76664174e64a124704afaac2e69f640ab658a8a507cd23"]
 
 #[[reducers]]
 #type = "AddressByAsset"
@@ -84,8 +85,8 @@ connection_params = "redis://127.0.0.1:6379"
 [intersect]
 type = "Point"
 value = [
-    28648669,
-    "5d3ca4916ddee8176746ccec3124a2e0eb8d8e23b5dba26670d3ef58cb890f58",
+    14591432,
+    "2f91ee547ef2ec0d68e48d164b74223575a727996b4ea00671fad0d0d55e3293",
 ]
 
 #long ago
