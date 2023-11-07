@@ -4,9 +4,8 @@ use blake2::Blake2bVar;
 use pallas::ledger::traverse::{Asset, MultiEraOutput};
 use pallas::ledger::traverse::{MultiEraBlock, OutputRef};
 use serde::Deserialize;
-use std::fs;
 
-use crate::reducer_state::{load_config, config_to_hash, ReducerState};
+use crate::reducer_state::ReducerState;
 use crate::{crosscut, model, prelude::*};
 use pallas::crypto::hash::Hash;
 
@@ -30,18 +29,23 @@ pub struct Reducer {
     config: Config,
     policy: crosscut::policies::RuntimePolicy,
     chain: crosscut::ChainWellKnownInfo,
-    state: Arc<Mutex<ReducerState>>
+    state: Arc<Mutex<ReducerState>>,
 }
 
-
 impl Reducer {
-
     fn is_policy_id_accepted(&self, policy_id: &Hash<28>) -> bool {
-        //dbg!(&self.state.clone().lock().unwrap().policy_ids);
-        match self.state.clone().lock().unwrap().policy_ids.clone().lock().map(|ids| {
-            let pids = ids;
-            pids.contains(&policy_id)
-        }) {
+        match self
+            .state
+            .clone()
+            .lock()
+            .unwrap()
+            .policy_ids
+            .clone()
+            .lock()
+            .map(|ids| {
+                let pids = ids;
+                pids.contains(&policy_id)
+            }) {
             Ok(p) => p,
             Err(_) => false,
         }
@@ -61,7 +65,6 @@ impl Reducer {
             None => return Ok(()),
         };
 
-        //address will be hash key
         let address = utxo.address().map(|addr| addr.to_string()).or_panic()?;
 
         for asset in utxo.assets() {
@@ -76,7 +79,7 @@ impl Reducer {
                             ])
                             .unwrap_or_default();
 
-                        let crdt = model::CRDTCommand::SetAdd(
+                        let crdt = model::CRDTCommand::SetRemove(
                             format!("{}.{}", "BookByAddress".to_string(), address.to_string()),
                             asset_fingerprint,
                         );
@@ -97,6 +100,7 @@ impl Reducer {
         _epoch_no: u64,
         output: &mut super::OutputPort,
     ) -> Result<(), gasket::error::Error> {
+
         let address = tx_output
             .address()
             .map(|addr| addr.to_string())
@@ -113,6 +117,7 @@ impl Reducer {
                                 hex::encode(name_str).as_str(),
                             ])
                             .unwrap_or_default();
+
                         let crdt = model::CRDTCommand::SetAdd(
                             format!("{}.{}", "BookByAddress".to_string(), address.to_string()),
                             asset_fingerprint,
@@ -127,6 +132,7 @@ impl Reducer {
 
         Ok(())
     }
+
     fn asset_fingerprint(&self, data_list: [&str; 2]) -> Result<String, bech32::Error> {
         let combined_parts = data_list.join("");
         let raw = hex::decode(combined_parts);
@@ -145,13 +151,15 @@ impl Reducer {
         ctx: &model::BlockContext,
         output: &mut super::OutputPort,
     ) -> Result<(), gasket::error::Error> {
-        //dbg!(&self.policy_ids.lock())
         for tx in block.txs().into_iter() {
             if filter_matches!(self, block, &tx, ctx) {
                 let epoch_no = block_epoch(&self.chain, block);
 
-                for consumed in tx.consumes().iter().map(|i| i.output_ref()) {
-                    self.process_consumed_txo(&ctx, &consumed, epoch_no, output)?;
+                for consumed in tx.inputs().iter().map(|i| i.output_ref()) {
+
+                    if ctx.find_utxo(&consumed).is_ok() {
+                        self.process_consumed_txo(&ctx, &consumed, epoch_no, output)?;
+                    }
                 }
 
                 for (_, meo) in tx.produces() {
@@ -164,22 +172,18 @@ impl Reducer {
     }
 }
 
-
 impl Config {
     pub fn plugin(
         self,
         chain: &crosscut::ChainWellKnownInfo,
         policy: &crosscut::policies::RuntimePolicy,
-        state: Arc<Mutex<ReducerState>>
+        state: Arc<Mutex<ReducerState>>,
     ) -> super::Reducer {
-
-
-
         let reducer = Reducer {
             config: self,
             chain: chain.clone(),
             policy: policy.clone(),
-            state
+            state,
         };
 
         super::Reducer::BookByAddress(reducer)

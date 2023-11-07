@@ -202,7 +202,7 @@ impl Reducer {
 
                                 if let Some((_, Metadatum::Map(asset_metadata))) = filtered_policy_assets {
                                     if let Ok(fingerprint_str) = self.asset_fingerprint([&policy_id_str.clone(), hex::encode(&asset_name_str).as_str()]) {
-                                        dbg!(&fingerprint_str);
+                                        //dbg!(&fingerprint_str);
                                         let timestamp = self.time.slot_to_wallclock(block.slot().to_owned());
                                         let metadata_final = self.get_wrapped_metadata_fragment(asset_name_str.clone(), policy_id_str.clone(), asset_metadata);
 

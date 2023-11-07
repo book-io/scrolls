@@ -77,14 +77,14 @@ impl ReducerState {
                     match event {
                         Ok(event) => {
                             if event.kind.is_modify() {
-                                dbg!(&event);
+                                //dbg!(&event);
                                 match load_config(&path_string) {
                                     Ok(new_config) => {
                                         let new_hashes = config_to_hash(&new_config.policy_ids);
                                         let mut phex = policies_hex_cloned.lock().unwrap();
                                         phex.clear();
                                         *phex = new_hashes;
-                                        println!("Reloading config.json ");
+                                        //println!("Reloading config.json ");
                                     }
                                     Err(error) => println!("Error reloading config: {:?}", error),
                                 }
