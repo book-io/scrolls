@@ -28,6 +28,25 @@
         scroll = craneLib.buildPackage {
           src = self;
         };
+        scrolls_image = pkgs.dockerTools.buildLayeredImage {
+          name = "scroll";
+          tag = "latest";
+          created = builtins.substring 0 8 self.lastModifiedDate;
+          contents = [
+            pkgs.dockerTools.binSh
+            pkgs.dockerTools.caCertificates
+            pkgs.dockerTools.usrBinEnv
+            pkgs.coreutils
+            pkgs.fakeNss
+            scroll
+          ];
+          config = {
+            Entrypoint = ["${scrolls_image}/bin/scrolls"];
+          };
+        };
+
+
+
 
       in {
         packages = {

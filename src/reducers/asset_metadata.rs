@@ -1,5 +1,4 @@
 use std::ops::Deref;
-use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use pallas::crypto::hash::Hash;
 

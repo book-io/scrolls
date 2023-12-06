@@ -5,7 +5,7 @@ use gasket::{
     runtime::{spawn_stage, WorkOutcome},
 };
 
-use redis::{Commands, ToRedisArgs};
+use redis::{Commands, ToRedisArgs, streams::StreamMaxlen::Equals};
 use serde::Deserialize;
 
 use crate::{bootstrap, crosscut, model};
@@ -71,6 +71,7 @@ impl Bootstrapper {
             connection: None,
             input: self.input,
             ops_count: Default::default(),
+            stream_name: "updates".to_string(),
         };
 
         pipeline.register_stage(spawn_stage(
@@ -115,6 +116,7 @@ impl Cursor {
 
 pub struct Worker {
     config: Config,
+    stream_name: String,
     connection: Option<redis::Connection>,
     ops_count: gasket::metrics::Counter,
     input: InputPort,
@@ -138,6 +140,16 @@ impl gasket::runtime::Worker for Worker {
                     .or_restart()?;
             }
             model::CRDTCommand::GrowOnlySetAdd(key, value) => {
+
+                    // NOTE:          #KEY  #VALUE              #KEY  #VALUE
+                let items = vec![("redis-key",key.clone()), ("action",String::from("write"))];
+
+                self.connection
+                    .as_mut()
+                    .unwrap()
+                    .xadd_maxlen(self.stream_name.clone(), Equals(10_000),"*", &items)
+                    .or_restart()?;
+
                 self.connection
                     .as_mut()
                     .unwrap()
@@ -146,6 +158,14 @@ impl gasket::runtime::Worker for Worker {
             }
             model::CRDTCommand::TwoPhaseSetAdd(key, value) => {
                 log::debug!("adding to 2-phase set [{}], value [{}]", key, value);
+
+                let items = vec![("key",key.clone()), ("action",String::from("write"))];
+
+                self.connection
+                    .as_mut()
+                    .unwrap()
+                    .xadd_maxlen(self.stream_name.clone(), Equals(10_000),"*", &items)
+                    .or_restart()?;
 
                 self.connection
                     .as_mut()
@@ -165,6 +185,14 @@ impl gasket::runtime::Worker for Worker {
             model::CRDTCommand::SetAdd(key, value) => {
                 log::debug!("adding to set [{}], value [{}]", key, value);
 
+                let items = vec![("key",key.clone()), ("action",String::from("write"))];
+
+                self.connection
+                    .as_mut()
+                    .unwrap()
+                    .xadd_maxlen(self.stream_name.clone(), Equals(10_000),"*", &items)
+                    .or_restart()?;
+
                 self.connection
                     .as_mut()
                     .unwrap()
@@ -173,6 +201,14 @@ impl gasket::runtime::Worker for Worker {
             }
             model::CRDTCommand::SetRemove(key, value) => {
                 log::debug!("removing from set [{}], value [{}]", key, value);
+
+                let items = vec![("key",key.clone()), ("action",String::from("delete"))];
+
+                self.connection
+                    .as_mut()
+                    .unwrap()
+                    .xadd_maxlen(self.stream_name.clone(), Equals(10_000),"*", &items)
+                    .or_restart()?;
 
                 self.connection
                     .as_mut()
@@ -197,6 +233,14 @@ impl gasket::runtime::Worker for Worker {
                     delta
                 );
 
+                let items = vec![("key",key.clone()), ("action",String::from("write"))];
+
+                self.connection
+                    .as_mut()
+                    .unwrap()
+                    .xadd_maxlen(self.stream_name.clone(), Equals(10_000),"*", &items)
+                    .or_restart()?;
+
                 self.connection
                     .as_mut()
                     .unwrap()
@@ -210,6 +254,14 @@ impl gasket::runtime::Worker for Worker {
                     value,
                     delta
                 );
+
+                let items = vec![("key",key.clone()), ("action",String::from("delete"))];
+
+                self.connection
+                    .as_mut()
+                    .unwrap()
+                    .xadd_maxlen(self.stream_name.clone(), Equals(10_000),"*", &items)
+                    .or_restart()?;
 
                 self.connection
                     .as_mut()
@@ -226,6 +278,15 @@ impl gasket::runtime::Worker for Worker {
             }
             model::CRDTCommand::AnyWriteWins(key, value) => {
                 log::debug!("overwrite [{}]", key);
+
+                let items = vec![("key",key.clone()), ("action",String::from("write"))];
+
+                self.connection
+                    .as_mut()
+                    .unwrap()
+                    .xadd_maxlen(self.stream_name.clone(), Equals(10_000),"*", &items)
+                    .or_restart()?;
+
 
                 self.connection
                     .as_mut()
@@ -245,6 +306,14 @@ impl gasket::runtime::Worker for Worker {
             model::CRDTCommand::HashSetValue(key, member, value) => {
                 log::debug!("setting hash key {} member {}", key, member);
 
+                let items = vec![("key",key.clone()), ("action",String::from("delete"))];
+
+                self.connection
+                    .as_mut()
+                    .unwrap()
+                    .xadd_maxlen(self.stream_name.clone(), Equals(10_000),"*", &items)
+                    .or_restart()?;
+
                 self.connection
                     .as_mut()
                     .unwrap()
@@ -262,6 +331,14 @@ impl gasket::runtime::Worker for Worker {
             }
             model::CRDTCommand::HashUnsetKey(key, member) => {
                 log::debug!("deleting hash key {} member {}", key, member);
+
+                let items = vec![("key",key.clone()), ("action",String::from("delete"))];
+
+                self.connection
+                    .as_mut()
+                    .unwrap()
+                    .xadd_maxlen(self.stream_name.clone(), Equals(10_000),"*", &items)
+                    .or_restart()?;
 
                 self.connection
                     .as_mut()
