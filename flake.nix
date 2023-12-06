@@ -28,7 +28,8 @@
         scroll = craneLib.buildPackage {
           src = self;
         };
-        scrolls_image = pkgs.dockerTools.buildLayeredImage {
+
+        scroll_image = pkgs.dockerTools.buildLayeredImage {
           name = "scroll";
           tag = "latest";
           created = builtins.substring 0 8 self.lastModifiedDate;
@@ -41,7 +42,7 @@
             scroll
           ];
           config = {
-            Entrypoint = ["${scrolls_image}/bin/scrolls"];
+            Entrypoint = ["${scroll_image}/bin/scrolls"];
           };
         };
 
@@ -50,9 +51,10 @@
 
       in {
         packages = {
-          inherit scroll;
+          inherit scroll scroll_image;
           default = scroll;
         };
+        #defaultPackage = scroll;
         devShell = pkgs.mkShell {
           buildInputs =
             [ (rustVersion.override { extensions = [ "rust-src" "rust-analyzer" ]; }) ];
