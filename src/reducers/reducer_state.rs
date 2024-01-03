@@ -87,7 +87,7 @@ impl ReducerState {
             .as_mut()
             .unwrap();
 
-        let policies: Vec<String> = redis::cmd("smembers").arg("PolicyIds").query(con).unwrap();
+        let policies: Vec<String> = redis::cmd("smembers").query(con).unwrap();
         let mut hashes = strings_to_hashes(&policies);
         policy_lock.append(&mut hashes);
         self.policy_ids.clone()

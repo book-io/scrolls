@@ -4,7 +4,7 @@ use gasket::runtime::spawn_stage;
 use pallas::ledger::traverse::MultiEraBlock;
 use serde::Deserialize;
 
-use crate::{bootstrap, crosscut, model, reducer_state::{load_config, config_to_hash, ReducerState}};
+use crate::{bootstrap, crosscut, model, reducer_state::{ReducerState}};
 
 type InputPort = gasket::messaging::TwoPhaseInputPort<model::EnrichedBlockPayload>;
 type OutputPort = gasket::messaging::OutputPort<model::CRDTCommand>;
@@ -89,38 +89,33 @@ impl Config {
         policy: &crosscut::policies::RuntimePolicy,
     ) -> Reducer {
 
-        //let path = match self.policy_ids_file {
-            //Some(ref p) => p.clone(),
-            //None => "./config.json".to_string(),
-        //};
-        //
-        let path = "./policy_ids.json";
-
-        let pids_config = load_config(&path.to_string()).unwrap();
-        let pids_hex = config_to_hash(&pids_config.policy_ids);
-        let policy_ids = Arc::new(Mutex::new(pids_hex));
-
-        let p = fs::canonicalize(&path).unwrap().clone();
-
-
         let state = Arc::new(Mutex::new(
-            ReducerState::new(Some(p.clone()),None,policy_ids)
+            ReducerState::new()
         ));
-
-
-        let _ = state.lock().map(|mut reducer_state|{
-            let dir = p.parent().unwrap().to_path_buf();
-            let _ = reducer_state.watch_path(dir, p.file_name().unwrap().to_string_lossy().to_string());
-        });
-
 
         match self {
             Config::FullUtxosByAddress(c) => c.plugin(policy),
             Config::UtxoByAddress(c) => c.plugin(policy),
             Config::PointByTx(c) => c.plugin(),
             Config::PoolByStake(c) => c.plugin(),
-            Config::BookByAddress(c) => c.plugin(chain,policy,state.clone()),
-            Config::AssetMetadata(c) => c.plugin(chain, policy, state.clone()),
+            Config::BookByAddress(c) => {
+
+                state.clone()
+                    .lock()
+                    .unwrap()
+                    .connection_params(c.connection_params.clone().unwrap_or_default());
+
+                c.plugin(chain,policy,state.clone())
+            },
+
+            Config::AssetMetadata(c) => {
+                state.clone()
+                    .lock()
+                    .unwrap()
+                    .connection_params(c.connection_params.clone().unwrap_or_default());
+
+                c.plugin(chain,policy,state.clone())
+            },
             #[cfg(feature = "unstable")]
             Config::AddressByTxo(c) => c.plugin(policy),
             #[cfg(feature = "unstable")]
@@ -275,3 +270,4 @@ impl Reducer {
         }
     }
 }
+

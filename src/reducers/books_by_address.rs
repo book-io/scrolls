@@ -22,6 +22,7 @@ pub struct Config {
     pub key_prefix: Option<String>,
     pub policy_ids_file: Option<String>,
     pub filter: Option<crosscut::filters::Predicate>,
+    pub connection_params: Option<String>,
     pub aggr_by: Option<AggrType>,
 }
 
@@ -34,21 +35,12 @@ pub struct Reducer {
 
 impl Reducer {
     fn is_policy_id_accepted(&self, policy_id: &Hash<28>) -> bool {
-        match self
-            .state
+            self.state
             .clone()
             .lock()
             .unwrap()
-            .policy_ids
-            .clone()
-            .lock()
-            .map(|ids| {
-                let pids = ids;
-                pids.contains(&policy_id)
-            }) {
-            Ok(p) => p,
-            Err(_) => false,
-        }
+            .exist(policy_id)
+            .is_ok_and(|v| v)
     }
 
     fn process_consumed_txo(

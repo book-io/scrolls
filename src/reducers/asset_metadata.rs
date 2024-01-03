@@ -33,6 +33,7 @@ impl Default for Projection {
 pub struct Config {
     pub key_prefix: Option<String>,
     pub historical_metadata: Option<bool>,
+    pub connection_params: Option<String>,
     pub policy_asset_index: Option<bool>,
     pub policy_ids_hex: Option<Vec<String>>,
     pub filter: Option<crosscut::filters::Predicate>,
@@ -85,7 +86,7 @@ fn kv_pairs_to_hashmap(kv_pairs: &KeyValuePairs<Metadatum, Metadatum>
 impl Reducer {
     fn is_policy_id_accepted(&self, policy_id: &Hash<28>) -> bool {
         //dbg!(&self.state.clone().lock().unwrap().policy_ids);
-        match self.state.clone().lock().unwrap().policy_ids.clone().lock().map(|ids| {
+        match self.state.clone().lock().unwrap().policy_ids().clone().lock().map(|ids| {
             let pids = ids;
             pids.contains(&policy_id)
         }) {

@@ -32,6 +32,7 @@ pub struct Config {
     pub cursor_key: Option<String>,
 }
 
+
 impl Config {
     pub fn bootstrapper(
         self,
@@ -141,8 +142,8 @@ impl gasket::runtime::Worker for Worker {
             }
             model::CRDTCommand::GrowOnlySetAdd(key, value) => {
 
-                    // NOTE:          #KEY  #VALUE              #KEY  #VALUE
-                let items = vec![("redis-key",key.clone()), ("action",String::from("write"))];
+                    // NOTE:          #KEY  #VALUE              #KEY  #VALUE                    #KEY  #VALUE
+                let items = vec![("redis-key",key.clone()), ("redis-value", value.clone()), ("action",String::from("write"))];
 
                 self.connection
                     .as_mut()
@@ -159,7 +160,8 @@ impl gasket::runtime::Worker for Worker {
             model::CRDTCommand::TwoPhaseSetAdd(key, value) => {
                 log::debug!("adding to 2-phase set [{}], value [{}]", key, value);
 
-                let items = vec![("key",key.clone()), ("action",String::from("write"))];
+                    // NOTE:          #KEY  #VALUE              #KEY  #VALUE                    #KEY  #VALUE
+                let items = vec![("redis-key",key.clone()), ("redis-value", value.clone()), ("action",String::from("write"))];
 
                 self.connection
                     .as_mut()
@@ -185,7 +187,8 @@ impl gasket::runtime::Worker for Worker {
             model::CRDTCommand::SetAdd(key, value) => {
                 log::debug!("adding to set [{}], value [{}]", key, value);
 
-                let items = vec![("key",key.clone()), ("action",String::from("write"))];
+                    // NOTE:          #KEY  #VALUE              #KEY  #VALUE                    #KEY  #VALUE
+                let items = vec![("redis-key",key.clone()), ("redis-value", value.clone()), ("action",String::from("write"))];
 
                 self.connection
                     .as_mut()
@@ -202,7 +205,8 @@ impl gasket::runtime::Worker for Worker {
             model::CRDTCommand::SetRemove(key, value) => {
                 log::debug!("removing from set [{}], value [{}]", key, value);
 
-                let items = vec![("key",key.clone()), ("action",String::from("delete"))];
+                    // NOTE:          #KEY  #VALUE              #KEY  #VALUE                    #KEY  #VALUE
+                let items = vec![("redis-key",key.clone()), ("redis-value", value.clone()), ("action",String::from("delete"))];
 
                 self.connection
                     .as_mut()
@@ -216,6 +220,7 @@ impl gasket::runtime::Worker for Worker {
                     .srem(key, value)
                     .or_restart()?;
             }
+
             model::CRDTCommand::LastWriteWins(key, value, ts) => {
                 log::debug!("last write for [{}], slot [{}]", key, ts);
 

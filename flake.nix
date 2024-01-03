@@ -25,13 +25,13 @@
           cargo = rustVersion;
           rustc = rustVersion;
         };
-        scroll = craneLib.buildPackage {
+        scrolls = craneLib.buildPackage {
           src = self;
         };
 
-        scroll_image = pkgs.dockerTools.buildLayeredImage {
-          name = "scroll";
-          tag = "latest";
+        scrolls_image = pkgs.dockerTools.buildLayeredImage {
+          name = "scrolls";
+          tag = "0.5.0-book";
           created = builtins.substring 0 8 self.lastModifiedDate;
           contents = [
             pkgs.dockerTools.binSh
@@ -39,20 +39,17 @@
             pkgs.dockerTools.usrBinEnv
             pkgs.coreutils
             pkgs.fakeNss
-            scroll
+            scrolls
           ];
           config = {
-            Entrypoint = ["${scroll_image}/bin/scrolls"];
+            Cmd = ["${scrolls}/bin/scrolls"];
           };
         };
 
-
-
-
       in {
         packages = {
-          inherit scroll scroll_image;
-          default = scroll;
+          inherit scrolls scrolls_image;
+          default = scrolls;
         };
         #defaultPackage = scroll;
         devShell = pkgs.mkShell {

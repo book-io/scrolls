@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+spec:
+  serviceName: "redis"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:5.0.12
+        ports:
+        - containerPort: 6379
+          name: redis
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+  volumeClaimTemplates:
+  - metadata:
+      name: redis-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+spec:
+  selector:
+    app: redis
+  ports:
+    - protocol: TCP
+      port: 6379
+      targetPort: 6379
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scrolls
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: scrolls
+  template:
+    metadata:
+      labels:
+        app: scrolls
+    spec:
+      containers:
+      - name: scrolls-container
+        image: us-central1-docker.pkg.dev/book-nonprod/nonprod/scrolls:0.5.0-book
+        imagePullPolicy: Always
+        env:
+        - name: RUST_LOG
+          value: info
+        command: ["scrolls"]
+        #stdin: true
+        #tty: true
+        args:
+          - "daemon"
+          - "--console"
+          - "plain"
+          - "--config"
+          - "/etc/scrolls/daemon.toml"
+        volumeMounts:
+        - name: scrolls-daemon
+          mountPath: /etc/scrolls
+        - name: policies
+          mountPath: /config
+      volumes:
+      - name: scrolls-daemon
+        configMap:
+          name: scrolls-daemon
+      - name: policies
+        configMap:
+          name: policies
