@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+# Change all contexts to '.' so the full repo
+# gets copied into the ci stage container.
+# This makes cargo build work with multiple packages.
+
+while read line; do
+  echo $line \
+    | sed -e 's@,$@@' \
+    | jq -c '.context = "."'
+done
+
+exit 0
